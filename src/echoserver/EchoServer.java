@@ -5,27 +5,52 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class EchoServer {
-	
-	// REPLACE WITH PORT PROVIDED BY THE INSTRUCTOR
-	public static final int PORT_NUMBER = 0; 
-	public static void main(String[] args) throws IOException, InterruptedException {
-		EchoServer server = new EchoServer();
-		server.start();
-	}
+    public static final int PORT_NUMBER = 6013;
+    private static final int THREAD_POOL_SIZE = 12;
 
-	private void start() throws IOException, InterruptedException {
-		ServerSocket serverSocket = new ServerSocket(PORT_NUMBER);
-		while (true) {
-			Socket socket = serverSocket.accept();
+    public static void main(String[] args) throws IOException {
+        EchoServer server = new EchoServer();
+        server.start();
+    }
 
-			// Put your code here.
-			// This should do very little, essentially:
-			//   * Construct an instance of your runnable class
-			//   * Construct a Thread with your runnable
-			//      * Or use a thread pool
-			//   * Start that thread
-		}
-	}
+    private void start() throws IOException {
+        try (ServerSocket serverSocket = new ServerSocket(PORT_NUMBER)) {
+            ExecutorService threadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+
+            System.out.println("EchoServer is running on port " + PORT_NUMBER);
+
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                System.out.println("Connected to client at " + clientSocket.getRemoteSocketAddress());
+
+                // Submit a task to the thread pool to handle the client connection
+                threadPool.submit(() -> handleClient(clientSocket));
+            }
+        }
+    }
+
+    private void handleClient(Socket socket) {
+        try (InputStream inputStream = socket.getInputStream();
+             OutputStream outputStream = socket.getOutputStream()) {
+
+            int data;
+            while ((data = inputStream.read()) != -1) {
+                outputStream.write(data); // Echo data back to client
+            }
+
+            System.out.println("Client at " + socket.getRemoteSocketAddress() + " disconnected.");
+        } catch (IOException e) {
+            System.err.println("Error handling client: " + e.getMessage());
+        } finally {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                System.err.println("Failed to close client socket: " + e.getMessage());
+            }
+        }
+    }
 }
